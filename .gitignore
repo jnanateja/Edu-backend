@@ -1,0 +1,63 @@
+# ===================================
+# Django
+# ===================================
+*.log
+*.pot
+*.pyc
+__pycache__/
+media/
+
+# Django collectstatic
+/staticfiles/
+/static/
+
+# Database files
+db.sqlite3
+*.db
+
+# ===================================
+# Python
+# ===================================
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ===================================
+# Virtual environments
+# ===================================
+venv/
+ENV/
+env/
+.venv/
+
+# ===================================
+# IDEs and editors
+# ===================================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===================================
+# OS files
+# ===================================
+.DS_Store
+Thumbs.db
+
+# ===================================
+# Unit test / coverage reports
+# ===================================
+.coverage
+.tox/
+.pytest_cache/
+htmlcov/
+
+.env
+
+# Ignore all Django migration folders
+*/migrations/
+!*/migrations/__init__.py
