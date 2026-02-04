@@ -41,4 +41,3 @@ urlpatterns = [
     path("student/courses/<int:pk>/", student_course_detail),
     path("student/subsections/<int:pk>/", student_subsection_detail),
 ]
-

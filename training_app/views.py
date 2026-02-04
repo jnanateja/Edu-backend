@@ -214,6 +214,7 @@ def subsection_detail(request, pk):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     sub.delete()
+
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -225,6 +226,7 @@ def student_course_list(request):
     courses = Course.objects.filter(is_published=True)
     serializer = CourseSerializer(courses, many=True)
     return Response(serializer.data)
+
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -241,6 +243,7 @@ def student_course_detail(request, pk):
 
     serializer = CourseSerializer(course)
     return Response(serializer.data)
+
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
