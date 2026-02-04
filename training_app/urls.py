@@ -13,6 +13,9 @@ from .views import (
     subsection_list_create,
     subsection_detail,
     login_view,
+    student_course_list,
+    student_course_detail,
+    student_subsection_detail,
 )
 
 urlpatterns = [
@@ -32,5 +35,10 @@ urlpatterns = [
     # SUB-SECTIONS
     path("subsections/", subsection_list_create),
     path("subsections/<int:pk>/", subsection_detail),
+
+    # Students
+    path("student/courses/", student_course_list),
+    path("student/courses/<int:pk>/", student_course_detail),
+    path("student/subsections/<int:pk>/", student_subsection_detail),
 ]
 

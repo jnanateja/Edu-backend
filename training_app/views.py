@@ -1,13 +1,14 @@
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import (
+    api_view,
+    permission_classes,
+    parser_classes,
+)
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.decorators import api_view, permission_classes, parser_classes
 from django.db import models
-
-
 
 from .models import Course, CourseSection, CourseSubSection
 from .serializers import (
@@ -15,13 +16,20 @@ from .serializers import (
     CourseSerializer,
     CourseSectionSerializer,
     CourseSubSectionSerializer,
+    CustomTokenObtainPairSerializer,
 )
 
-from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import CustomTokenObtainPairSerializer
+def admin_only(user):
+    if not user.is_staff:
+        raise PermissionDenied("Only admins can perform this action.")
+
+
+def student_only(user):
+    if user.role != "student":
+        raise PermissionDenied("Only students can access this resource.")
 
 # =====================================================
-# REGISTER
+# AUTH
 # =====================================================
 @api_view(["POST"])
 @permission_classes([AllowAny])
@@ -34,7 +42,7 @@ def register_view(request):
                 "message": "Registration successful",
                 "user": {
                     "email": user.email,
-                    "role": user.role,
+                    "role": getattr(user, "role", None),
                 },
             },
             status=status.HTTP_201_CREATED,
@@ -46,48 +54,35 @@ def register_view(request):
 @permission_classes([AllowAny])
 def login_view(request):
     serializer = CustomTokenObtainPairSerializer(data=request.data)
-
     if serializer.is_valid():
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
-
+        return Response(serializer.validated_data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-
-# =====================================================
-# PERMISSION CHECK
-# =====================================================
-def teacher_only(user):
-    if user.role != "teacher":
-        raise PermissionDenied("Only teachers can perform this action.")
 
 
-# =====================================================
-# COURSES
-# =====================================================
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def course_list_create(request):
-    teacher_only(request.user)
+    admin_only(request.user)
 
     if request.method == "GET":
-        courses = Course.objects.filter(teacher=request.user)
-        serializer = CourseSerializer(courses, many=True)
-        return Response(serializer.data)
+        courses = Course.objects.all()
+        return Response(CourseSerializer(courses, many=True).data)
 
     serializer = CourseSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save(teacher=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(["GET", "PUT", "DELETE"])
 @permission_classes([IsAuthenticated])
 def course_detail(request, pk):
-    teacher_only(request.user)
+    admin_only(request.user)
 
     try:
-        course = Course.objects.get(pk=pk, teacher=request.user)
+        course = Course.objects.get(pk=pk)
     except Course.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
@@ -106,22 +101,19 @@ def course_detail(request, pk):
 
 
 # =====================================================
-# SECTIONS
+# SECTIONS (ADMIN ONLY)
 # =====================================================
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def section_list_create(request):
-    teacher_only(request.user)
+    admin_only(request.user)
 
     if request.method == "GET":
-        sections = CourseSection.objects.filter(
-            course__teacher=request.user
-        )
+        sections = CourseSection.objects.all()
         return Response(
             CourseSectionSerializer(sections, many=True).data
         )
 
-    # 🔥 AUTO-ORDER LOGIC
     data = request.data.copy()
     course_id = data.get("course")
 
@@ -136,11 +128,6 @@ def section_list_create(request):
 
     serializer = CourseSectionSerializer(data=data)
     if serializer.is_valid():
-        course = serializer.validated_data["course"]
-
-        if course.teacher != request.user:
-            raise PermissionDenied("You do not own this course.")
-
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -150,12 +137,10 @@ def section_list_create(request):
 @api_view(["GET", "PUT", "DELETE"])
 @permission_classes([IsAuthenticated])
 def section_detail(request, pk):
-    teacher_only(request.user)
+    admin_only(request.user)
 
     try:
-        section = CourseSection.objects.get(
-            pk=pk, course__teacher=request.user
-        )
+        section = CourseSection.objects.get(pk=pk)
     except CourseSection.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
@@ -174,51 +159,47 @@ def section_detail(request, pk):
 
 
 # =====================================================
-# SUB-SECTIONS
+# SUB-SECTIONS (ADMIN ONLY)
 # =====================================================
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
 def subsection_list_create(request):
+    admin_only(request.user)
 
-    teacher_only(request.user)
-
-    if request.method == "POST":
-        data = request.data.copy()
-        section_id = data.get("section")
-
-        # 🔥 AUTO-ORDER LOGIC
-        last_order = (
-            CourseSubSection.objects
-            .filter(section_id=section_id)
-            .aggregate(models.Max("order"))["order__max"]
-            or 0
+    if request.method == "GET":
+        subs = CourseSubSection.objects.all()
+        return Response(
+            CourseSubSectionSerializer(subs, many=True).data
         )
 
-        data["order"] = last_order + 1
+    data = request.data.copy()
+    section_id = data.get("section")
 
-        serializer = CourseSubSectionSerializer(data=data)
-        if serializer.is_valid():
-            section = serializer.validated_data["section"]
+    last_order = (
+        CourseSubSection.objects
+        .filter(section_id=section_id)
+        .aggregate(models.Max("order"))["order__max"]
+        or 0
+    )
 
-            if section.course.teacher != request.user:
-                raise PermissionDenied("You do not own this course.")
+    data["order"] = last_order + 1
 
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+    serializer = CourseSubSectionSerializer(data=data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(["GET", "PUT", "DELETE"])
 @permission_classes([IsAuthenticated])
 def subsection_detail(request, pk):
-    teacher_only(request.user)
+    admin_only(request.user)
 
     try:
-        sub = CourseSubSection.objects.get(
-            pk=pk, section__course__teacher=request.user
-        )
+        sub = CourseSubSection.objects.get(pk=pk)
     except CourseSubSection.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
@@ -234,3 +215,45 @@ def subsection_detail(request, pk):
 
     sub.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def student_course_list(request):
+    student_only(request.user)
+
+    courses = Course.objects.filter(is_published=True)
+    serializer = CourseSerializer(courses, many=True)
+    return Response(serializer.data)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def student_course_detail(request, pk):
+    student_only(request.user)
+
+    try:
+        course = Course.objects.get(pk=pk, is_published=True)
+    except Course.DoesNotExist:
+        return Response(
+            {"detail": "Course not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    serializer = CourseSerializer(course)
+    return Response(serializer.data)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def student_subsection_detail(request, pk):
+    student_only(request.user)
+
+    try:
+        subsection = CourseSubSection.objects.get(pk=pk)
+    except CourseSubSection.DoesNotExist:
+        return Response(
+            {"detail": "Subsection not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    serializer = CourseSubSectionSerializer(subsection)
+    return Response(serializer.data)

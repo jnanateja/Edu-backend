@@ -16,13 +16,25 @@ class User(AbstractUser):
     )
 
     email = models.EmailField(unique=True)
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    role = models.CharField(
+        max_length=10,
+        choices=ROLE_CHOICES,
+        blank=True,
+        null=True,
+    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]
 
+    def save(self, *args, **kwargs):
+        # Admins are always teachers
+        if self.is_staff and not self.role:
+            self.role = "teacher"
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.email} ({self.role})"
+
 
 
 # =====================================================
