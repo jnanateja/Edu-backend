@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from .models import (
@@ -416,6 +417,31 @@ class QuizFileUrlMixin:
         url = f.url
         return request.build_absolute_uri(url) if request else url
 
+    def _student_can_view_answer_key(self, quiz, submission=None):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return False
+
+        role = getattr(user, "role", None)
+        if user.is_staff or role == "teacher":
+            return True
+        if role != "student":
+            return False
+
+        now = timezone.now()
+        if quiz.due_at and now <= quiz.due_at:
+            return False
+
+        if submission is None:
+            submission = (
+                quiz.submissions.filter(student=user, graded_at__isnull=False)
+                .order_by("-graded_at", "-created_at")
+                .first()
+            )
+
+        return bool(submission and submission.graded_at)
+
 
 class QuizChoiceSerializer(serializers.ModelSerializer):
     class Meta:
@@ -475,11 +501,7 @@ class QuizSerializer(QuizFileUrlMixin, serializers.ModelSerializer):
         return self._file_url(obj.question_pdf)
 
     def get_answer_key_pdf(self, obj):
-        request = self.context.get("request")
-        user = getattr(request, "user", None)
-        if not user or (not user.is_staff and getattr(user, "role", None) != "teacher"):
-            return None
-        return self._file_url(obj.answer_key_pdf)
+        return self._file_url(obj.answer_key_pdf) if self._student_can_view_answer_key(obj) else None
 
 
 # -----------------------------
@@ -567,6 +589,10 @@ class QuizCreateSerializer(serializers.ModelSerializer):
             allow_retakes = attrs.get("allow_retakes")
             if allow_retakes is False:
                 attrs["max_attempts"] = 1
+        # Quizzes are always published when created — multipart FormData sends missing
+        # booleans as False in DRF, so we force is_published=True for new quizzes.
+        if not self.instance:
+            attrs["is_published"] = True
         return attrs
 
 
@@ -675,11 +701,8 @@ class QuizReviewSerializer(QuizFileUrlMixin, serializers.ModelSerializer):
         return self._file_url(obj.question_pdf)
 
     def get_answer_key_pdf(self, obj):
-        request = self.context.get("request")
-        user = getattr(request, "user", None)
-        if not user or getattr(user, "role", None) != "student":
-            return self._file_url(obj.answer_key_pdf)
-        return self._file_url(obj.answer_key_pdf)
+        submission = self.context.get("submission")
+        return self._file_url(obj.answer_key_pdf) if self._student_can_view_answer_key(obj, submission=submission) else None
 
 
 class QuizSubmissionReviewSerializer(QuizFileUrlMixin, serializers.ModelSerializer):

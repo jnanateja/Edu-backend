@@ -34,6 +34,8 @@ def serve_media(request, path: str):
         path,
         os.path.join("course_docs", os.path.basename(path)),  # new recommended folder
         os.path.join("course_pdfs", os.path.basename(path)),  # legacy folder
+        os.path.join("quiz_files", os.path.basename(path)),   # quiz PDFs / submissions / answer keys
+        os.path.join("package_covers", os.path.basename(path)),  # learning path covers
         os.path.basename(path),  # legacy root media
     ]
 
