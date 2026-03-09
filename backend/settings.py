@@ -11,6 +11,10 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,7 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'training_app',
+    'training_app.apps.TrainingAppConfig',
     'corsheaders',
 ]
 
@@ -141,3 +145,10 @@ AUTH_USER_MODEL = 'training_app.User'
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+
+MUX_TOKEN_ID = os.getenv("MUX_TOKEN_ID", "")
+MUX_TOKEN_SECRET = os.getenv("MUX_TOKEN_SECRET", "")
+MUX_SIGNING_KEY_ID = os.getenv("MUX_SIGNING_KEY_ID", "")
+MUX_SIGNING_PRIVATE_KEY = os.getenv("MUX_SIGNING_PRIVATE_KEY", "")
+MUX_WEBHOOK_SECRET = os.getenv("MUX_WEBHOOK_SECRET", "")

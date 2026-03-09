@@ -4,6 +4,29 @@ from django.conf import settings
 
 User = settings.AUTH_USER_MODEL
 
+import uuid
+import os
+
+def course_doc_upload_path(instance, filename: str) -> str:
+    """Store lecture docs under media/course_docs with a UUID name preserving extension."""
+    base, ext = os.path.splitext(filename)
+    ext = ext.lower() if ext else ""
+    return f"course_docs/{uuid.uuid4().hex}{ext}"
+
+
+def package_cover_upload_path(instance, filename: str) -> str:
+    """Store learning path cover images under media/package_covers with UUID names."""
+    base, ext = os.path.splitext(filename)
+    ext = ext.lower() if ext else ""
+    return f"package_covers/{uuid.uuid4().hex}{ext}"
+
+
+def quiz_pdf_upload_path(instance, filename: str) -> str:
+    """Store quiz PDFs under media/quiz_files with a UUID name preserving extension."""
+    base, ext = os.path.splitext(filename)
+    ext = ext.lower() if ext else ""
+    return f"quiz_files/{uuid.uuid4().hex}{ext}"
+
 
 # =====================================================
 # USER MODEL (AUTH ONLY)
@@ -126,7 +149,9 @@ class Course(models.Model):
         choices=(("11", "Class 11"), ("12", "Class 12")),
     )
 
-    is_published = models.BooleanField(default=False)
+    # NOTE: In this LMS, a course is considered "published" as soon as it is created/assigned.
+    # Package publishing controls storefront visibility.
+    is_published = models.BooleanField(default=True)
 
     # Homepage metadata
     rating = models.FloatField(default=0.0)
@@ -174,6 +199,7 @@ class CourseSubSection(models.Model):
     CONTENT_CHOICES = (
         ("video", "Video"),
         ("pdf", "PDF"),
+        ("file", "Document"),
     )
 
     section = models.ForeignKey(
@@ -186,7 +212,13 @@ class CourseSubSection(models.Model):
     content_type = models.CharField(max_length=10, choices=CONTENT_CHOICES)
 
     video_url = models.URLField(blank=True, null=True)
-    pdf_file = models.FileField(upload_to="course_pdfs/", blank=True, null=True)
+    pdf_file = models.FileField(upload_to=course_doc_upload_path, blank=True, null=True)
+
+    mux_upload_id = models.CharField(max_length=255, blank=True, null=True)
+    mux_asset_id = models.CharField(max_length=255, blank=True, null=True)
+    mux_playback_id = models.CharField(max_length=255, blank=True, null=True)
+    video_status = models.CharField(max_length=50, blank=True, null=True)
+    video_duration = models.FloatField(blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -212,6 +244,7 @@ class Package(models.Model):
 
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    cover_image = models.ImageField(upload_to=package_cover_upload_path, blank=True, null=True)
 
     # one-time purchase metadata
     is_published = models.BooleanField(default=False)
@@ -257,13 +290,35 @@ class PackagePurchase(models.Model):
 # =====================================================
 
 class Quiz(models.Model):
+    QUIZ_TYPE_CHOICES = (
+        ("mcq", "MCQ"),
+        ("pdf", "PDF Quiz"),
+    )
+
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="quizzes")
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="created_quizzes")
 
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    quiz_type = models.CharField(max_length=10, choices=QUIZ_TYPE_CHOICES, default="mcq")
+    question_pdf = models.FileField(upload_to=quiz_pdf_upload_path, blank=True, null=True)
+    answer_key_pdf = models.FileField(upload_to=quiz_pdf_upload_path, blank=True, null=True)
 
-    is_published = models.BooleanField(default=False)
+    # Scheduling & rules
+    # If due_at is set, students cannot start/submit after this time.
+    due_at = models.DateTimeField(null=True, blank=True)
+
+    # If set, the attempt expires after N minutes from start.
+    time_limit_minutes = models.PositiveIntegerField(null=True, blank=True)
+
+    # Attempts per student. If 0 => unlimited (kept simple).
+    max_attempts = models.PositiveIntegerField(default=1)
+
+    # If False, retakes are disallowed regardless of max_attempts.
+    allow_retakes = models.BooleanField(default=True)
+
+    # Quizzes are immediately visible to enrolled students; due/time/attempt rules control access.
+    is_published = models.BooleanField(default=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -300,6 +355,23 @@ class QuizSubmission(models.Model):
 
     score = models.IntegerField(default=0)
     total = models.IntegerField(default=0)
+    submission_file = models.FileField(upload_to=quiz_pdf_upload_path, blank=True, null=True)
+    feedback = models.TextField(blank=True)
+    graded_at = models.DateTimeField(null=True, blank=True)
+    graded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="graded_quiz_submissions")
+
+    STATUS_CHOICES = (
+        ("in_progress", "In Progress"),
+        ("submitted", "Submitted"),
+        ("expired", "Expired"),
+    )
+
+    attempt_number = models.PositiveIntegerField(default=1)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="submitted")
+
+    started_at = models.DateTimeField(auto_now_add=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    time_taken_seconds = models.IntegerField(default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -322,3 +394,85 @@ class QuizAnswer(models.Model):
 
     def __str__(self):
         return f"Answer {self.question.id} ({'correct' if self.is_correct else 'wrong'})"
+
+
+# =====================================================
+# CLASS SCHEDULES + IN-APP NOTIFICATIONS
+# =====================================================
+
+
+class CourseSchedule(models.Model):
+    """Live/virtual class schedules for a specific course."""
+
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="schedules")
+
+    # Who created/updated the schedule (teacher/admin)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="created_schedules")
+
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+
+    start_at = models.DateTimeField()
+    end_at = models.DateTimeField(null=True, blank=True)
+
+    live_link = models.URLField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["start_at"]
+
+    def __str__(self):
+        return f"{self.course.title}: {self.title} ({self.start_at})"
+
+
+class Notification(models.Model):
+    """Simple in-app notifications (no email/push in v1)."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
+    title = models.CharField(max_length=200)
+    message = models.TextField(blank=True)
+
+    # Optional deep-link hints for the frontend
+    course = models.ForeignKey(Course, on_delete=models.SET_NULL, null=True, blank=True, related_name="notifications")
+    schedule = models.ForeignKey(CourseSchedule, on_delete=models.SET_NULL, null=True, blank=True, related_name="notifications")
+    url = models.CharField(max_length=500, blank=True)
+
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Notif({self.user.email}): {self.title}"
+
+
+# =====================================================
+# COURSE ANNOUNCEMENTS (Teacher/Admin -> Students)
+# =====================================================
+
+
+class CourseAnnouncement(models.Model):
+    """Course-wide announcements created by teachers/admins.
+
+    Students can view announcements only if they have course access.
+    Creating/updating an announcement also creates in-app notifications.
+    """
+
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="announcements")
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="created_announcements")
+
+    title = models.CharField(max_length=200)
+    message = models.TextField(blank=True)
+    link = models.URLField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Announcement({self.course.title}): {self.title}"
