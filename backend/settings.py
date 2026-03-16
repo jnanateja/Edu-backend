@@ -29,7 +29,12 @@ SECRET_KEY = 'django-insecure-sz2#_qim4s)7ipv01ve3st6^yiylh=-8sadvdcjyk7+6##&n^*
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost",
+    "10.0.0.223",
+    "172.20.20.20",
+]
 
 
 # Application definition
@@ -152,3 +157,4 @@ MUX_TOKEN_SECRET = os.getenv("MUX_TOKEN_SECRET", "")
 MUX_SIGNING_KEY_ID = os.getenv("MUX_SIGNING_KEY_ID", "")
 MUX_SIGNING_PRIVATE_KEY = os.getenv("MUX_SIGNING_PRIVATE_KEY", "")
 MUX_WEBHOOK_SECRET = os.getenv("MUX_WEBHOOK_SECRET", "")
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "http://10.0.0.223:8000")

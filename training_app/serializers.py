@@ -1,6 +1,8 @@
 from django.utils import timezone
+from urllib.parse import urljoin
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
+from django.conf import settings
 from .models import (
     User, StudentProfile, TeacherProfile,
     Course, CourseSection, CourseSubSection,
@@ -9,6 +11,29 @@ from .models import (
     CourseSchedule, Notification, CourseAnnouncement,
 )
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+
+def absolute_media_url(request, url: str | None):
+    if not url:
+        return None
+
+    public_base = getattr(settings, "PUBLIC_BASE_URL", "").strip()
+
+    if request:
+        built = request.build_absolute_uri(url)
+        if public_base:
+            try:
+                host = request.get_host().split(":")[0]
+            except Exception:
+                host = ""
+            if host in {"127.0.0.1", "localhost", "10.0.2.2"}:
+                return urljoin(f"{public_base.rstrip('/')}/", url.lstrip("/"))
+        return built
+
+    if public_base:
+        return urljoin(f"{public_base.rstrip('/')}/", url.lstrip("/"))
+
+    return url
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -108,6 +133,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 class CourseSubSectionSerializer(serializers.ModelSerializer):
     mux_playback_token = serializers.SerializerMethodField()
+    pdf_file = serializers.SerializerMethodField()
 
     class Meta:
         model = CourseSubSection
@@ -150,6 +176,9 @@ class CourseSubSectionSerializer(serializers.ModelSerializer):
             return _generate_mux_playback_token(obj.mux_playback_id)
         except Exception:
             return None
+
+    def get_pdf_file(self, obj):
+        return absolute_media_url(self.context.get("request"), obj.pdf_file.url if obj.pdf_file else None)
 
 
 class CourseSectionSerializer(serializers.ModelSerializer):
@@ -304,7 +333,50 @@ class PackageSerializer(serializers.ModelSerializer):
             return None
         request = self.context.get("request")
         url = obj.cover_image.url
-        return request.build_absolute_uri(url) if request else url
+        return absolute_media_url(request, url)
+
+
+class PackageCourseSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Course
+        fields = ("id", "title", "exam_target", "student_class", "is_published")
+
+
+class PackageListSerializer(serializers.ModelSerializer):
+    courses = PackageCourseSummarySerializer(many=True, read_only=True)
+    discount_percentage = serializers.SerializerMethodField()
+    cover_image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Package
+        fields = (
+            "id",
+            "title",
+            "description",
+            "cover_image",
+            "is_published",
+            "featured",
+            "is_free",
+            "price",
+            "discounted_price",
+            "discount_percentage",
+            "courses",
+            "created_at",
+            "updated_at",
+        )
+
+    def get_discount_percentage(self, obj):
+        if obj.discounted_price and obj.price and obj.price > 0:
+            discount = ((obj.price - obj.discounted_price) / obj.price) * 100
+            return round(discount, 1)
+        return None
+
+    def get_cover_image(self, obj):
+        if not obj.cover_image:
+            return None
+        request = self.context.get("request")
+        url = obj.cover_image.url
+        return absolute_media_url(request, url)
 
 class PackageCreateSerializer(serializers.ModelSerializer):
     course_ids = serializers.ListField(
@@ -415,7 +487,7 @@ class QuizFileUrlMixin:
             return None
         request = self.context.get("request")
         url = f.url
-        return request.build_absolute_uri(url) if request else url
+        return absolute_media_url(request, url)
 
     def _student_can_view_answer_key(self, quiz, submission=None):
         request = self.context.get("request")

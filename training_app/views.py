@@ -31,6 +31,7 @@ from .serializers import (
     CustomTokenObtainPairSerializer,
     UserSerializer,
     PackageSerializer,
+    PackageListSerializer,
     PackageCreateSerializer,
     PackagePurchaseSerializer,
     QuizSerializer,
@@ -43,6 +44,7 @@ from .serializers import (
     CourseScheduleSerializer,
     NotificationSerializer,
     CourseAnnouncementSerializer,
+    absolute_media_url,
 )
 
 
@@ -255,7 +257,7 @@ def public_courses(request):
 @permission_classes([AllowAny])
 def public_packages(request):
     packages = Package.objects.filter(is_published=True).order_by("-created_at")
-    serializer = PackageSerializer(packages, many=True, context={"request": request})
+    serializer = PackageListSerializer(packages, many=True, context={"request": request})
     return Response(serializer.data)
 
 
@@ -263,7 +265,7 @@ def public_packages(request):
 @permission_classes([AllowAny])
 def featured_packages(request):
     packages = Package.objects.filter(is_published=True, featured=True).order_by("-created_at")[:6]
-    serializer = PackageSerializer(packages, many=True, context={"request": request})
+    serializer = PackageListSerializer(packages, many=True, context={"request": request})
     return Response(serializer.data)
 
 
@@ -1325,7 +1327,7 @@ def student_quiz_status(request, quiz_id: int):
     return Response({
         "quiz_id": quiz.id,
         "quiz_type": quiz.quiz_type,
-        "question_pdf": request.build_absolute_uri(quiz.question_pdf.url) if quiz.question_pdf else None,
+        "question_pdf": absolute_media_url(request, quiz.question_pdf.url if quiz.question_pdf else None),
         "due_at": quiz.due_at,
         "time_limit_minutes": quiz.time_limit_minutes,
         "max_attempts": quiz.max_attempts,
@@ -1521,7 +1523,7 @@ def package_list_create(request):
     if request.method == "GET":
         admin_only(request.user)
         packages = Package.objects.all().order_by("-created_at")
-        serializer = PackageSerializer(packages, many=True, context={"request": request})
+        serializer = PackageListSerializer(packages, many=True, context={"request": request})
         return Response(serializer.data)
 
     admin_only(request.user)
