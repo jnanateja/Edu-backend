@@ -8,7 +8,6 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("training_app.urls")),
 
-    # React frontend
     re_path(
         r"^(?!api/|admin/|media/|assets/).*$",
         TemplateView.as_view(template_name="index.html"),
