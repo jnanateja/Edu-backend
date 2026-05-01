@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="K3 Rankers Adda logo">
+  <rect width="200" height="200" fill="#f3f4f6" />
+  <circle cx="100" cy="100" r="86" fill="none" stroke="#052a67" stroke-width="4" />
+  <circle cx="100" cy="100" r="66" fill="none" stroke="#1f69b4" stroke-width="4" />
+  <circle cx="35" cy="100" r="4" fill="#1f69b4" />
+  <circle cx="166" cy="100" r="4" fill="#052a67" />
+
+  <text x="84" y="71" font-size="42" font-weight="700" fill="#f97316" text-anchor="middle" font-family="Trebuchet MS, Segoe UI, sans-serif">K</text>
+  <text x="119" y="84" font-size="34" font-weight="700" fill="#f97316" text-anchor="middle" font-family="Trebuchet MS, Segoe UI, sans-serif">3</text>
+
+  <g transform="translate(66 89)" fill="none" stroke="#111827" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 32h68l-6-9H6z" fill="#ffffff" />
+    <path d="M6 30V13c10-4 20-4 29 0v17" />
+    <path d="M62 30V13c-10-4-20-4-29 0" />
+    <path d="M13 17h15M13 21h15M13 25h15" />
+    <path d="M40 17h15M40 21h15M40 25h15" />
+    <path d="M34 11v-14" />
+    <path d="M34 5l-10-6M34 5l10-6M34 5l-14-2M34 5l14-2" />
+  </g>
+
+  <text x="100" y="145" font-size="13" font-weight="700" fill="#12b76a" text-anchor="middle" font-family="Segoe Script, Comic Sans MS, cursive">Rankers Adda</text>
+</svg>
