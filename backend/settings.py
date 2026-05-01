@@ -23,10 +23,30 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-sz2#_qim4s)7ipv01ve3st6^yiylh=-8sadvdcjyk7+6##&n^*'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost",
+    "www.k3rankersadda.com",
+    "k3rankersadda.com",
+    "webapp-3046972.pythonanywhere.com",
+    "PnvKrishna.pythonanywhere.com",
+]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://www.k3rankersadda.com",
+    "https://k3rankersadda.com",
+    "https://webapp-3046972.pythonanywhere.com",
+    "https://PnvKrishna.pythonanywhere.com",
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "https://www.k3rankersadda.com",
+    "https://k3rankersadda.com",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 # Application definition
 
@@ -121,7 +141,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 from datetime import timedelta
 

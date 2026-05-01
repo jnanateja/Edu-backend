@@ -137,17 +137,32 @@ def package_public_detail(request, pk: int):
 @permission_classes([AllowAny])
 def register_view(request):
     serializer = RegisterSerializer(data=request.data)
+
+    print("Register data:", request.data)
+
     if serializer.is_valid():
         user = serializer.save()
+
         return Response(
             {
                 "message": "Registration successful",
-                "user": {"email": user.email, "role": getattr(user, "role", None)},
+                "user": {
+                    "email": user.email,
+                    "role": user.role,
+                },
             },
             status=status.HTTP_201_CREATED,
         )
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    print("Registration errors:", serializer.errors)
+
+    return Response(
+        {
+            "message": "Registration failed",
+            "errors": serializer.errors
+        },
+        status=status.HTTP_400_BAD_REQUEST,
+    )
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
