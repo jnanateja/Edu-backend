@@ -55,8 +55,6 @@ Thumbs.db
 .pytest_cache/
 htmlcov/
 
-.env
-
 # Ignore all Django migration folders
 */migrations/
 !*/migrations/__init__.py
