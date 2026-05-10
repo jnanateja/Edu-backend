@@ -13,31 +13,34 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 
 load_dotenv()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# =========================================================
+# BASE DIR
+# =========================================================
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# =========================================================
+# SECURITY
+# =========================================================
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-sz2#_qim4s)7ipv01ve3st6^yiylh=-8sadvdcjyk7+6##&n^*'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
+    "PnvKrishna.pythonanywhere.com",
+    "www.k3rankersadda.com",
     "127.0.0.1",
     "localhost",
-    "10.0.0.223",
-    "172.20.20.20",
 ]
 
-
-# Application definition
+# =========================================================
+# APPLICATIONS
+# =========================================================
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -46,78 +49,106 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Third Party
     'rest_framework',
-    'training_app.apps.TrainingAppConfig',
     'corsheaders',
 
+    # Local Apps
+    'training_app',
 ]
+
+# =========================================================
+# MIDDLEWARE
+# =========================================================
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+
     'django.middleware.security.SecurityMiddleware',
+
     'django.contrib.sessions.middleware.SessionMiddleware',
+
     'django.middleware.common.CommonMiddleware',
+
     'django.middleware.csrf.CsrfViewMiddleware',
+
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+
     'django.contrib.messages.middleware.MessageMiddleware',
+
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# =========================================================
+# URLS / WSGI
+# =========================================================
+
 ROOT_URLCONF = 'backend.urls'
+
+WSGI_APPLICATION = 'backend.wsgi.application'
+
+# =========================================================
+# TEMPLATES
+# =========================================================
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
+
         'DIRS': [],
+
         'APP_DIRS': True,
+
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
+
                 'django.contrib.auth.context_processors.auth',
+
                 'django.contrib.messages.context_processors.messages',
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'backend.wsgi.application'
-
-
-CORS_ALLOW_ALL_ORIGINS = True
-
-
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+# =========================================================
+# DATABASE
+# =========================================================
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
+
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
-
-# Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
+# =========================================================
+# PASSWORD VALIDATION
+# =========================================================
 
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
+
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
     },
+
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
     },
+
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
+# =========================================================
+# INTERNATIONALIZATION
+# =========================================================
 
 LANGUAGE_CODE = 'en-us'
 
@@ -127,13 +158,31 @@ USE_I18N = True
 
 USE_TZ = True
 
+# =========================================================
+# STATIC FILES
+# =========================================================
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
+STATIC_URL = "/static/"
 
-STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-from datetime import timedelta
+# =========================================================
+# MEDIA FILES
+# =========================================================
+
+MEDIA_URL = "/media/"
+
+MEDIA_ROOT = BASE_DIR / "media"
+
+# =========================================================
+# CUSTOM USER MODEL
+# =========================================================
+
+AUTH_USER_MODEL = 'training_app.User'
+
+# =========================================================
+# DJANGO REST FRAMEWORK
+# =========================================================
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -141,21 +190,55 @@ REST_FRAMEWORK = {
     ),
 }
 
+# =========================================================
+# SIMPLE JWT
+# =========================================================
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-AUTH_USER_MODEL = 'training_app.User'
+# =========================================================
+# CORS
+# =========================================================
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+CORS_ALLOW_ALL_ORIGINS = True
 
+# =========================================================
+# MUX CONFIG
+# =========================================================
 
 MUX_TOKEN_ID = os.getenv("MUX_TOKEN_ID", "")
+
 MUX_TOKEN_SECRET = os.getenv("MUX_TOKEN_SECRET", "")
+
 MUX_SIGNING_KEY_ID = os.getenv("MUX_SIGNING_KEY_ID", "")
-MUX_SIGNING_PRIVATE_KEY = os.getenv("MUX_SIGNING_PRIVATE_KEY", "")
-MUX_WEBHOOK_SECRET = os.getenv("MUX_WEBHOOK_SECRET", "")
-PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "http://10.0.0.223:8000")
+
+MUX_SIGNING_PRIVATE_KEY = os.getenv(
+    "MUX_SIGNING_PRIVATE_KEY",
+    ""
+)
+
+MUX_WEBHOOK_SECRET = os.getenv(
+    "MUX_WEBHOOK_SECRET",
+    ""
+)
+
+# =========================================================
+# PUBLIC BASE URL
+# =========================================================
+
+PUBLIC_BASE_URL = os.getenv(
+    "PUBLIC_BASE_URL",
+    "https://www.k3rankersadda.com"
+)
+
+# =========================================================
+# DEFAULT PRIMARY KEY
+# =========================================================
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
