@@ -666,8 +666,17 @@ def create_mux_upload(request, pk):
     try:
         res.raise_for_status()
     except requests.HTTPError:
-        return Response(res.json() if res.headers.get("content-type", "").startswith("application/json") else {"detail": "Failed to create Mux upload."}, status=status.HTTP_502_BAD_GATEWAY)
+        print("MUX STATUS:", res.status_code)
+        print("MUX RESPONSE:", res.text)
 
+        return Response(
+            {
+                "detail": "Failed to create Mux upload.",
+                "mux_status": res.status_code,
+                "mux_response": res.text,
+            },
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
     data = res.json().get("data", {})
     subsection.mux_upload_id = data.get("id")
     subsection.mux_asset_id = None

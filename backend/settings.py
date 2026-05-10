@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'training_app.apps.TrainingAppConfig',
     'corsheaders',
+
 ]
 
 MIDDLEWARE = [
