@@ -22,7 +22,6 @@ db.sqlite3
 *.so
 *.egg
 *.egg-info/
-dist/
 build/
 .eggs/
 
