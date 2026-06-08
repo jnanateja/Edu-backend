@@ -1579,8 +1579,12 @@ def package_detail(request, pk: int):
 
 
 # =====================================================
-# STUDENT PACKAGE PURCHASE (NEW)
+# STUDENT PACKAGE PURCHASE
 # =====================================================
+
+import razorpay
+from django.conf import settings
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -1592,26 +1596,106 @@ def purchase_package(request, pk: int):
     except Package.DoesNotExist:
         return Response({"detail": "Package not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    purchase, created = PackagePurchase.objects.get_or_create(
-        student=request.user,
-        package=package,
-        defaults={"status": "active"},
+    # Free package unlock directly
+    if package.is_free or package.price <= 0:
+        purchase, created = PackagePurchase.objects.get_or_create(
+            student=request.user,
+            package=package,
+            defaults={"status": "active"},
+        )
+
+        return Response(
+            {
+                "payment_required": False,
+                "message": "Free package unlocked" if created else "Package already owned",
+                "purchase": PackagePurchaseSerializer(
+                    purchase,
+                    context={"request": request}
+                ).data,
+            },
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+    # If Razorpay payment response is coming from frontend, verify it
+    razorpay_order_id = request.data.get("razorpay_order_id")
+    razorpay_payment_id = request.data.get("razorpay_payment_id")
+    razorpay_signature = request.data.get("razorpay_signature")
+
+    client = razorpay.Client(
+        auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
     )
 
-    # For v1 we treat it as instant purchase success
-    return Response(
-        {
-            "message": "Package unlocked" if created else "Package already owned",
-            "purchase": PackagePurchaseSerializer(purchase, context={"request": request}).data,
+    if razorpay_order_id and razorpay_payment_id and razorpay_signature:
+        try:
+            client.utility.verify_payment_signature({
+                "razorpay_order_id": razorpay_order_id,
+                "razorpay_payment_id": razorpay_payment_id,
+                "razorpay_signature": razorpay_signature,
+            })
+        except razorpay.errors.SignatureVerificationError:
+            return Response(
+                {"detail": "Payment verification failed"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        purchase, created = PackagePurchase.objects.get_or_create(
+            student=request.user,
+            package=package,
+            defaults={"status": "active"},
+        )
+
+        if not created and purchase.status != "active":
+            purchase.status = "active"
+            purchase.save(update_fields=["status"])
+
+        return Response(
+            {
+                "payment_required": False,
+                "message": "Package unlocked" if created else "Package already owned",
+                "purchase": PackagePurchaseSerializer(
+                    purchase,
+                    context={"request": request}
+                ).data,
+            },
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+    # Otherwise create Razorpay order
+    order = client.order.create({
+        "amount": int(package.price * 100),
+        "currency": "INR",
+        "payment_capture": 1,
+        "notes": {
+            "package_id": str(package.id),
+            "student_id": str(request.user.id),
         },
-        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
-    )
+    })
+
+    return Response({
+        "payment_required": True,
+        "key": settings.RAZORPAY_KEY_ID,
+        "order_id": order["id"],
+        "amount": order["amount"],
+        "currency": order["currency"],
+        "package_id": package.id,
+        "package_title": package.title,
+    })
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def student_purchases(request):
     student_only(request.user)
-    purchases = PackagePurchase.objects.filter(student=request.user, status="active").order_by("-created_at")
-    serializer = PackagePurchaseSerializer(purchases, many=True, context={"request": request})
+
+    purchases = PackagePurchase.objects.filter(
+        student=request.user,
+        status="active"
+    ).order_by("-created_at")
+
+    serializer = PackagePurchaseSerializer(
+        purchases,
+        many=True,
+        context={"request": request}
+    )
+
     return Response(serializer.data)

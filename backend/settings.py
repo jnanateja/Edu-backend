@@ -17,6 +17,10 @@ from datetime import timedelta
 
 load_dotenv()
 
+
+RAZORPAY_KEY_ID = "rzp_test_Sz3SC4vMRfhZFO"
+RAZORPAY_KEY_SECRET = "d7KS3L3aB4D9sijZM8C9n3LZ"
+
 # =========================================================
 # BASE DIR
 # =========================================================
